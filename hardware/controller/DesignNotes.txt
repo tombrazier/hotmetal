@@ -1,0 +1,430 @@
+CHECKS before send board to print
+---------------------------------
+Y is board labeled with name and revision?
+Y make sure all text is vector font (Options->User Interface->Always use vector fonts. Because Eagle stupidly offers proportional font it cannot render to gerber files!)
+Y check ERC
+Y set up DRC rules (using JLCPCB for fab?)
+Y renumber components
+N check that track layout and board mounting prevent a water leak from conducting live to the user
+Y check through-hole components are on the right side of the board (top, i.e. not mirrored)
+Y check label placements (not covered by components or clashing with each other)
+Y check labels are not covering pads
+Y check labels are on the correct layer (i.e. blabel / tlabel)
+Y check pins are labelled where necessary (incl Live, Neutral, Earth)
+Y check component sizes vs stock (e.g 1uF 0603 ceramic cap)
+Y check the specific components are available to buy (e.g. regulators)
+Y check USB cable clearance (11mm above board, 9.8mm wide, 28mm long)
+Y check IO pins are on a 0.1" grid
+Y check heatsink placements
+Y check no components that collide with the vertical columns on machine base plate back side (0.8" to 1.1" and 2.8" to 3.1" from bottom right, height 0.8")
+Y check no components that collide with the vertical columns on machine base plate front side (3.45" to 3.7" from bottom right, height 0.6")
+Y check all airwires routed (Tools -> Statistics gives number of unrouted airwires)
+Y check mains power nets are in net class power (see what breaks min width 50mil and 1.6mm separation from default class and 1mm separation for power class)
+Y check DRC (with appropriate layers visible otherwise they don't get checked - note label layers are best checked visually and stop layers should be checked)
+
+Errors/notes:
+-------------
+-Space for an onboard fuse? (For Non-UK plugs).
+-Onboard varistor.
+-D2 is physically close to the tray and a deep pool of water could connect to mains. Exposed GND along
+ top and bottom sides of the board at the lower edge (in HEATSINK component) would mitigate as well.)
+-Move zero cross circuit to 9V side of transformer and use JFET! (MMBFJ201 would need no resistor).
+ -R43 should be 1206 not 0805 to handle 400V.
+ -The R43 / C26 RC circuit is really an RLC circuit when stray (e.g. house) inductance is taken into account and
+  can have inductance in the 10s of uH. If the circuit is underdamped, this can result in destructive voltage spikes.
+-PMPSW and STMSW are wrong way round considering line to IC2. Also it's a lot easier if software
+ controls the temperature probe ranges so use D10 (SS) pin for PMPSW.
+-Buzzer FET should have gate pulldown for when AVR is resetting and pin output is open.
+-R10/R11 potential divider relies on 5V which is unreliable, e.g. when on USB - use zener or regulator or something
+ (MMBFJ201 if using it for zero crossover)
+-There is never a need for VSS < 0V even with K type. Eliminate -ve supply.
+-Since VDD > 5V (i.e. arduino VCC), opamp outputs to the arduino should have resistors on them.
+-Coupling between VSS / VDD and the inputs to the opamp. Route lines differently.
+ -Piezo buzzer puts noise on the VDD line.
+ -I changed C12 to 1uF 16V and doubled up C5.
+ -Since we really don't care about an high frequency signal, why not put a cap between opamp +ve and -ve inputs?
+-LED markings have no polarity.
+-Provision for NTC probes is poor.
+-Terminal markings should be repeated on underside of board.
+-The USB 5V supply can be quite noisy at highish frequency (e.g. 50kHz) and this
+ noise is conducted progressively to ground in the probe pin decoupling caps and C25,
+ causing a differential voltage across the probes. Only an issue when mains power off.
+ Whichever of SJ1-SJ4 is used, it should be a 2k2 resistor, not a bridge.
+-The AREF pins sucks in about 50uA, which makes the probe current about 5% over target
+ and shifts the temperature ranges downwards a bit. Not really an issue but it means
+ a nominal 100R resistor probably has an input > 0 and a 150R nominal is 1023 (i.e.
+ maxes out the ADC.
+-With K type probe, an additive component would allow for probe to be cooler than AVR
+-With K type probe, the op amp's Vio is quite significant but results in a fixed delta. Unfortunately this varies by 7uV/C which is significant at a range or 50C. 
+-With K type probe, internal temp reference is sensitive to VCC. So you get a different reading if powered by USB vs mains.
+ So is bandgap, to a similar degree, divide by BG to offset the change.
+-With K Type, internal temp is bady affected by self-heating of the AVR.
+-With K type probe, internal temp has occasional wild excursions.
+
+TODO:
+-----
+Build: make cable for Twin front panel using an Amp-TE Micro-Match 14 way ribbon connector but with 4 strands of wire.
+Plastic backing plane.
+internal LEDs for when front panel is perspex?
+
+Spacing, etc. (PCBWay recommendations)
+--------------------------------------
+
+Min recommended track width: 6mil.
+Min recommended spacing:     6mil.
+Min drill size:              0.2mm (8mil) (but 0.3mm costs less).
+Min annular ring:            0.15mm (6mil) (so total via diameter >= 0.3mm larger than hole).
+
+Build notes
+-----------
+
+C20, C22, SJ1 to SJ7 give options to connect thermocouples or resistive
+deivces (e.g. PT100 probes) to probes 1 to 3. For PT100, SJ1 and SJ5 to
+SJ7 are be bridged and the rest unbriged/unpopulated. But if using
+thermocouples rather than PT100s, some of the jumpers are unbridged
+and some of the resistors and capacitors are populated. The resistor
+network on the opamps would also have to change.
+
+
+Displays
+--------
+
+OLED modules that use I2C or SPI look like a good option. E.g. the waveshare 1.5inch OLED
+display. OLED and TFT displays us on the order of 30mA with all pixels illuminated.
+
+Heat and heatsinksing
+------------
+
+Problem environment: both chambers inside the machine are spaces for
+boilers and so hot environments. Depending on location, it could be as
+hot as 70C.
+
+The bottom of the board is shielded from heat by the board itself and is
+also adjactent to the case. This will be the coolest spot.
+
+High power components need to be on the bottom of the board. E.g. regulators
+and constant current depletion mode FET in the zero-crossover circuit.
+
+TRIAC thermal runaway: any temperature over 125C causes the TRIACs to
+switch on permanently, which means everything will just keep getting hotter
+until something burns. So TRAIC cores MUST remain < 125C. So 115C for safety.
+So we have a headroom of 45K.
+
+Current: maximum continuous power demand is when steaming milk. For a
+decent flow of steam (3 nozzle), about 2kW is desirable. At 240VAC, that
+means 8.3A and for TRIACs that means about 8W.
+
+Heatsinks: the chunkiest passive heatsinks for TO-220 packages tend towards
+10K/W. At a headroom of 45K, that means we can cool 4.5W. This is less than
+the 8.3W we need to cool!
+
+Solution: a happy circumstance is that continuous 8.3W power drain only
+occurs when water is flowing through the machine. So, an easy answer is
+to use a water-cooled CPU heatsink connected inline with the supply water.
+This arrangement will need to be on some kind of bracket to keep it in place.
+But the board, as a whole, need to be on a bracket to keep it in place.
+A copper sheet between the heatsink and the TRAICs can have a double function
+of bracket and heatpipe. Best of all, no power is wasted as the waste heat
+becomes a slight preheat for the water!
+
+Analogue sensors
+----------------
+
+Aref given by a voltage regulator:
+    -Needs to be exact.
+    -Needs to be stable over temperature range. Although the most important
+     measurements are from the PT100 devices, which are in-line and Aref
+     scales with PT100 voltage and stability isn't important.
+    -If in-line with PT100 devices, adjust pin current needs to be tiny.
+
+MCP1700T-1802E/TT has very small GND current (MOSFET device) and reasonable stability
+over temperature.
+
+Place regulator on bottom of board for minimal effect from boiler heat.
+
+Steam switch can be used to provide an input to op-amps that shifts PT100 range.
+
+Main boiler sensors
+-------------------
+
+These need to be the most accurate of all the sensors so we can set brew
+temperature to within a fraction of a degree. The resistor network converts
+the probe voltage range for 120C to a range of 1.8V (which is what Aref gets
+from the 1.8V regulator) and subtracts the equivalent of 100Ohms which is
+the PT100 value for 0C.
+
+When the steam switch is closed, an analogue switch brings another resistor
+into the network, subtracting an extra voltage from the output and shifting
+the measurement range.
+
+Water level gauge
+-----------------
+
+MPXV7002 works nicely.
+(https://www.nxp.com/docs/en/data-sheet/MPXV7002.pdf)
+
+The reservoir is empty when there is about 5cm head of water = 0.5kPa and
+full when there is about 5cm head of water = 1.5kPa. These pressures equate
+to an output voltage of 3V to 4V (at supply voltage of 5V and linearly scaled
+against the supply).
+
+Variations in atmospheric pressure cause the max and min values to change
+so we need some space around these points. If we allow a range of 2.5V to
+4.5V, then 1 bit from the 10 bit ADC equates to about 0.2% of the reservoir,
+which is a resultion greater than measurement error.
+
+Vref is attached to 1.8V which implies the need for a gain of less than unity,
+which makes op-amp instability likely. We can acheive this with a potential
+divider to zero on both +ve and -ve inputs to the op amp.
+
+                  |\
+Vp ---[ R1 ]------|+\
+GND---[ R2 ]-'    |  \______Vo
+                  |  /    |
+5v ---[ R3 ]------|-/     |
+GND---[ R4 ]-|    |/      |
+             L---[ R5 ]---'
+
+R1=100k, R2=10k, R3=100k, R4=4k7, R5=33k gives a pretty good range from
+Vp = 2.17V to 4.54V.
+
+Zero-crossover
+--------------
+
+The zero-crossover circuit uses a diode in series with an opto-coupler to
+signal from the mains voltage side to the logic voltage side that mains
+is above a few volts. The opto-coupler is connected directly to an arduino
+pin with an internal pull-up.
+
+This has a nice advantage that the on and off times are slightly different
+because mains voltage has to be about two diode drops above zero for the
+opto-coupler to switch on enough. With suitable calibration, mains voltage
+can therefore be measured, which can make power calculations even more accurate.
+This is overkill and, therefore, strictly bad software engineering but it
+feels strangely pleasing!
+
+To keep the components safe, a depletion mode MOSFET and a resistor act
+as a current-limiting circuit to keep the current below around 0.5mA.
+
+The circuit as a whole needs to be protected from high frequency noise for
+two reasons. First, noise can cause a zero-crossover in the wrong place.
+Much more seriously, a high dV/dt on the MOSFET can destroy it.
+
+There are two ways a MOSFET can be damaged by dV/dt. One is to do with the
+parasitic BJT in combination with its base resistances and capacitances. This
+is a hard limit of the device itself. The datasheet give a max of 6GV/s.
+
+The other source of damage is when the maximum Vgs voltage is exceeded because
+of gate capacitances. This depends on the device and also the external circuit.
+In our circuit, a sudden change of voltage from operating the mains switch
+mid-cycle is enough to cause this. It can happen with switching on or
+off. Technical: mains voltage is applied across drain and gate with a resistor
+between gate and source. The normal current path goes through this resistor.
+But if there is a sudden 340V change on Vgd then the Cds and Cgs have to charge
+to this voltage. According to the datasheet, Cds = Coss - Crs = 1.4pF and
+Cgs = Ciss - Crss = 20pF. The voltage on source will change by 340 / (1 + Cgs / Cds)
+with respect to gate which is about 22V. The absolute maximum Vgs is +/- 20V.
+
+We can limit Vgs to +/-20V if we limit the current in the 2k2 gate source resistor
+to about 9mA. For Cds to conduct that current, voltage across Cds has to be
+changing at about 6.5GV/s. This is more than the datasheet's hard limit of 6GV/s, so
+6GV/s is the limit.
+
+A series RC filter can give this but can also introduce problems of its own.
+Taking stray inductance into account, we have an RLC circuit. Depending on
+the initial charge of the capacitor and the instantaneous mains voltage applied,
+there can be oscillations that peak a lot higher than the mains voltage peak.
+Worst case scenario, at -340V transformer stops conducting because bridge rectifier
+on 9V side switches off and zero-cross circuit is reverse biased. Capcitor remains
+charged to -340V and then 340V is applied. The resistor has to handle 680V and the
+capacitor voltage swings to as much as 1020V! With just the right timing in switch
+bounce this could happen!
+
+Nonetheless, if switch on occurs at 340V and the RLC circuit is not well damped
+then the initial oscillation can swing the voltage on the capacitor up to nearly 680V!
+So the RLC circuit should be overdamped. i.e. R^2 > 4L/C. L can be as high as tens of
+uH for 10m of copper wire - which is normal in house wiring.
+
+A 100R resistor in series with a 500V 68nF capacitor will keep dV/dt low enough
+and also easily overdamp a house with 100uH inductance in the wiring.
+
+Better solution: move the zero-crossing circuit to the 9V side of the transformer
+and use a JFET instead of a MOSFET and a schottkey diode for protection.
+
+Arduino pins
+------------
+
+Avoid using the SDA and SCL (A4 and A5) pins so TWI is available (leave as general digital IO).
+Avoid using the SS, MISO, MOSI and CLK pins so SPI is available (leave as general analogue IO).
+
+The pump is driven by PWM, and needs to be on pin OC2B.
+The solenoid can be on any digital pin as it is simply switched on and off.
+The 2 boilers can be on any digital pin because they are driven by an interrupt function at each zero-crossover.
+The 2 switches and 2 LEDs can be on any digital pin.
+The analogue inputs should use at least pins A6 and A7 because these have no other function. There are three temp probes and a water level meter.
+The flow meter can be on any pin with PCINT. Note: it's easier not to share these interrupts.
+The mains zero crossover can be on any pin with PCINT. Note: it's easier not to share these interrupts.
+
+Power supply
+------------
+
+Rev 1.0 draws around 70mA at its highest drain. Add another 8mA for the extra opto-couple
+in Rev 2.0 and another 40mA for the mood lighting LEDs and we need about 120mA.
+
+For interfacing with the Baby Twin's hardware, we need another 78mA. The
+front panel uses 75mA with all LEDs illuminated and the hall effect sensor
+(steam switch) uses 3mA.
+
+A home made front panel would need something like 30mA per OLED or TFT display
+and 20mA for an arduino. So 80mA.
+
+On the plus side, removing the Baby Class front panel takes us down two LEDs
+or 20mA.
+
+So the heaviest load I imagine is 120mA plus about 80mA for a front panel
+minus 20mA. We need to be able to cover 180mA comfortably.
+
+Under maximum current on Rev 1.0, the ripple dips to just under 9V. Rev 2.0's schottkey bridge
+rectifier drops less voltage than Rev 1.0's oversized 400V 1A S1G rectifier. Rev 2.0 uses a
+bridge rectifier whereas Rev 1.0 used a single diode for single-phase rectification
+(which made the Rev 1.0 zero-crossover circuit possible - Rev 2.0 has a different arrangement). So
+the same capacitance on Rev 2.0 will give half the ripple at the same current as Rev 1.0.
+
+We need a minimum of about 8.5V for the 8V regulator's dropout.
+
+We can suppose, based on the above, that 1000uF will drop to 9V at 140mA. Another 50mA would
+drop the 1000uF capacitor by 0.5V in 10ms. So we should be able to get 190mA. That's
+okay.
+
+
+TRIACs
+------
+
+Temperature inside top housing gets to as much as 50K above ambient, i.e.
+in the 70s C.
+
+Max temp for TRIAC is 125C.
+
+Requirements for TRIACs / SCRs:
+    -Isolated tab.
+    -Blocking voltage > +-340V.
+    -Current limit high enough.
+    -Power dissipation small enough (see note).
+
+Boiler SCR power note:
+    RMS boiler current is mains voltage over resistance:
+        Ib(RMS) = 240 / 21.5 = 11.2A
+        Ib(AV) = Ib(PEAK) * 0.637 = Ib(RMS) * 1.414 * 0.637 = 10.1A
+    Each SCR only conducts for half of each AC cycle so:
+        I(RMS) = Ib(RMS) * 0.707 = 7.9A
+        I(AV) = Ib(AV) / 2 = 5.0A
+    That's assuming the datasheet gives power over the whole AC cycle even
+    though an SCR conducts for only up to half the cycle. If it gives power
+    just for the half-cycle where it conducts, then we need to read off power
+    against the full current (RMS or AV) and halve it.
+
+For the boiler, the gate of the SCR needs to be protected from negative
+bias by a diode. Given this, we could just as well use a TRIAC if it is
+convenient to do so.
+
+For all the TRAICs / SCRs, the gate's current needs to be limited with a
+resistor. A potential divider is unneccesary, though, because gate/cathode
+is a PN juntion (i.e. a diode) and so it's voltage is limited to the diode
+turn on voltage.
+
+For the boiler:
+TXN612 SCR is insulated, blocks 600V, carries 8A average and generates 6W at I(AV)=5A.
+BTA24-600BWRG or BTA24-800BWRG TRIACs also meet all the criteria for the boiler.
+
+For pump and solenoid:
+BTA08-600CWRG TRIAC is sufficient and insulated.
+
+Gaggia Baby Twin front panel interface
+--------------------------------------
+
+Note: for testing purposes, the Twin controller board has an 8 pin header which
+includes a GND pin:
+
+    JP7
+    -  -
+    -  -
+    -  -
+    -  - GND
+
+A 14 wire ribbon cable connects the front panel to the controller board. If we
+number the wires from 1 to 14, starting at the red end, then the connector
+on the board alternates sides:
+
+14  12  10   8   6   4   2
+ |   |   |   |   |   |   |
+-----------------------------
+|                           ]
+|                          |
+|                           ]
+-----------------------------
+   |   |   |   |   |   |   |
+  13  11   9   7   5   3   1
+
+The connector is from te (Tycho Electronics) and the ribbon cable part
+number is 1-215083-4 or 8-215083-4 (same part but one comes in boxes and
+the other on reels).
+
+My best guess is that the controller board has two interfaces on this cable,
+one for the Twin and one for the Dose. For the Twin, it is a TWI interface
+and for the Dose it is a simple set of lines to LEDs and switches. The only
+pins that seem to make any difference for the Twin are:
+
+1  VCC
+9  SDA
+7  Button touch notification
+11 SCL
+14 GND
+
+The front panel pulls pins 9 (SDA), 11 (SCL) and 7 high. When a button is
+touched or released, pin 7 pulses low for 50us. This could be used to respond
+or you can you poll regularly.
+
+In addition, the controller board pulls the following high: 2, 4, 6, 8, 10.
+And 3 and 5 are high impedence. And 12 is low or high impedence (can't remember).
+None of these are relevant to the Twin front panel.
+
+The controller polls the front panel periodically with the following protocol:
+Poll rate: normally every 48ms. When a button is being touched, continuously.
+SCL clock speed: 62500Hz.
+
+At each poll, the controller writes the LED state and then reads the buttons.
+
+To write: write two bytes, the first is address and the second is value.
+To read: write one byte (address) and read one byte (value).
+The front panel only responds to the general call TWI address 0.
+The address of the LEDs is 0x00 and the address of the buttons is 0x01.
+
+So on the TWI bus, you see:
+START, address packet to 0 and W = 0x00, 2 data packets: 0x00, CODE1, STOP,
+START, address packet to 0 and W = 0x00, 1 data packets: 0x01, STOP,
+START, address packet to 0 and R = 0x01, 1 data packets: CODE2, STOP.
+
+CODE1 is a six bit bitmask plus two parity bits:
+
+| 7        | 6        | 5           | 4         | 3         | 2          | 1         | 0         |
+| Parity 1 | Parity 0 | Element LED | Steam LED | Water LED | Manual LED | 2 cup LED | 1 cup LED |
+
+Parity 1 is bit3 XOR bit4 XOR bit5.
+Parity 0 is bit0 XOR bit1 XOR bit2.
+
+CODE2 is a pair of 4 bit nibbles where high nibble = 1s complement of low nibble.
+Low nibble is a 4 bit bitmask indicating which button is touched:
+
+| 3     | 2      | 1     | 0     |
+| Water | Manual | 2 cup | 1 cup |
+
+Note: if more than one button is touched, this is invalid and code2 = 0xf0.
+
+Front panel dimensions
+----------------------
+
+outer rect wxh: 108x68
+this includes a 2.5mm deep tab at the top which is 6mm high
+tabs on sides: 16 to 27 mm from bottom
+inner rect wxhxd: 93.5x79x3
+circle dia x d: 78x1.4
