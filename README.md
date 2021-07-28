@@ -2,8 +2,7 @@
 
 This project started as an Arduino PID controller for my coffee machine and gradually became a lot more. Read about it [here](http://tomblog.firstsolo.net/index.php/hobbies/pimping-my-coffee-machine/).
 
-Presently there is just a controller PCB and firmware. In time I plan to build a front panel PCB as well. The board is designed to mount neatly in a Gaggia Baby machine
-but there is scope for other layouts for different machine. The circuit diagram would work with pretty much all machines with some modifications to the firmware.
+Presently there is just a controller PCB and firmware. In time I plan to build a front panel PCB as well. The board is designed to mount neatly in a Gaggia Baby machine but there is scope for other layouts for different machines. The circuit diagram would work with pretty much all machines with some modifications to the firmware.
 
 hardware/controller contains EAGLE files for the controller PCB which is an Arduino Nano shield.
 firmware/controller contains the Arduino source code.
