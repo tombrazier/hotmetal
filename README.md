@@ -6,7 +6,7 @@ Presently there is just a controller PCB and firmware. In time I plan to build a
 
 `hardware/controller` contains EAGLE CAD files for the controller PCB which is an Arduino Nano shield.
 
-`hardware/schematics` contains PDFs of the schematics for various versions of the controller. This saves having to have EAGLE to view them.
+`hardware/schematics` contains PDFs of the schematics for release versions of the controller. Saves hacing to have EAGLE installed and also gives past versions.
 
 `firmware/controller` contains the Arduino source code.
 
