@@ -1,6 +1,6 @@
 # Hot Metal Brewbot
 
-This project started as an Arduino PID controller for my coffee machine and gradually became a lot more. Read about it [here](http://tomblog.firstsolo.net/index.php/hobbies/pimping-my-coffee-machine/).
+This project started as an Arduino PID controller for my coffee machine and gradually became a lot more. Read about it [here](http://tomblog.firstsolo.net/index.php/hobbies/pimping-my-coffee-machine/). See a video of the machine in action [here](https://www.youtube.com/watch?v=up54jM5fQOQ).
 
 Presently there is just a controller PCB and firmware. In time I plan to build a front panel PCB as well. The board is designed to mount neatly in a Gaggia Baby machine but there is scope for other layouts for different machines. The circuit diagram would work with pretty much all machines with some modifications to the firmware.
 
