@@ -62,7 +62,7 @@ void setup()
   MCUCR &= ~_BV(PUD);
 
   // set up comms
-  Serial.begin(38400);
+  Serial.begin(115200);
 
   // wait for mains zero-crossing to stabilise, but don't hold off starting the heating process
   while(!MainsSyncManager::ready())
