@@ -29,7 +29,7 @@
 #define REPORTING_CODE                            // define to include status reporting over the serial port
 
 // operating parameters
-static const double BREW_SETPOINT = 97.0;       // °C UNION Revelation works well with 97.0°C
+static const double BREW_SETPOINT = 97.0;       // °C
 static const double STEAM_SETPOINT = 166.0;     // °C average boiler temperature (bearing in mind element sides are a hotter and other sides cooler)
 static const double MAX_FLOW_RATE = 10.0;       // ml/s well over what the pump can produce just to be sure
 static const double BREW_FLOW_RATE_2CUP = 3.5;  // ml/s
