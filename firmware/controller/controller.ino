@@ -517,8 +517,8 @@ void loop()
     static int rowCount = 0;
     if (rowCount == 0)
     {
-      Serial.println(F("time\tsteam \tpump  \theat \telemnt\tshell \twater\tb. head\tPCB  \ttriac\tPROBE3\tAC     \tpump \tdpump \twater\tvolume\tflow \tflow"));
-      Serial.println(F("    \tswitch\tswitch\tpower\ttemp  \ttemp  \ttemp \ttemp   \ttemp \ttemp \ttemp  \tcycle  \tpower\tpwr/dt\tlevel\t      \tsetpt\trate"));
+      Serial.println(F("time\tsteam \tpump  \theat \telemnt\tshell \twater\tb. head\tPCB  \ttriac\tPROBE3\tAC     \tpump \tdpump \twater\tvolume\tflow \tflow\tpulse"));
+      Serial.println(F("    \tswitch\tswitch\tpower\ttemp  \ttemp  \ttemp \ttemp   \ttemp \ttemp \ttemp  \tcycle  \tpower\tpwr/dt\tlevel\t      \tsetpt\trate\tcount"));
     }
     rowCount = (rowCount + 1) % 30;
 
@@ -559,6 +559,8 @@ void loop()
     Serial.print(flowSetpoint);
     Serial.print("\t");
     Serial.print(flowRate);
+    Serial.print("\t");
+    Serial.print(FlowMeter::getPulseCount());
     Serial.println();
 #endif // REPORTING_CODE
 #endif // CONTROLLER_CODE
