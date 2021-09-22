@@ -19,9 +19,12 @@
 
 #include "flowmeter.h"
 #include "constants.h"
+#include "mainssync.h"
+#include "simpleio.h"
 
 #include <Arduino.h>
 
+static volatile unsigned long g_halfPulseCount = 0;;
 static volatile unsigned long g_lastChangeTime = 0;
 static volatile unsigned long g_lastFlowPulseTime = 0;
 static volatile double g_flowHalfPeriods[2] = {1.0e6, 1.0e6};
@@ -39,21 +42,21 @@ static double getMlsPerPulse(double pulseRate)
   // pulses cease, so the flow cannot be determined.
 /*
 import scipy.interpolate
-# measured data
-pulsesPerMl=(0.74, 1.22, 1.35, 1.55, 1.7, 1.84, 1.925, 1.925)
-flowRates=(1.02, 1.14, 1.22, 1.38, 1.61, 2.01, 2.6, 3.0)
+# measured data - pulse rates in pulse/s and flow rates in mL/s
+pulseRates = (5.13, 6.03, 7.00, 8.40, 9.52, 10.93, 12.75, 14.63, 16.10, )
+flowRates = (0.95, 1.55, 2.05, 2.65, 3.55, 4.70, 6.10, 7.35, 8.60, )
 # from the known ratio of pulse count to volume at given flow rates, build the related array of pulse rates
-pulseRates = tuple([x * y for x, y in zip(pulsesPerMl, flowRates)])
+pulsesPerMl = tuple([x / y for x, y in zip(pulseRates, flowRates)])
 # interpolate (it turns out that interpolating pulses per ml gives a much better curve than interpolating mls per pulse - so we'll invert later)
 func = scipy.interpolate.interp1d(pulseRates, pulsesPerMl, kind='quadratic')
 xarray = [pulseRates[0] + (pulseRates[-1] - pulseRates[0]) / 20 * x for x in range(21)]
 yarray = func(xarray)
-print 'static const double pulseRates[] = {%s};' % ', '.join(['%.3f' % x for x in xarray])
-print 'static const double mlPerPulse[] = {%s};' % ', '.join(['%.3f' % (1.0/y) for y in yarray])
+print('static const double pulseRates[] = {%s};' % ', '.join(['%.3f' % x for x in xarray]))
+print('static const double mlPerPulse[] = {%s};' % ', '.join(['%.3f' % (1.0/y) for y in yarray]))
 */
 
-  static const double pulseRates[] = {0.755, 1.006, 1.257, 1.508, 1.759, 2.010, 2.261, 2.512, 2.763, 3.014, 3.265, 3.516, 3.767, 4.018, 4.269, 4.520, 4.771, 5.022, 5.273, 5.524, 5.775};
-  static const double mlPerPulse[] = {0.884, 0.688, 0.591, 0.539, 0.506, 0.484, 0.470, 0.464, 0.466, 0.469, 0.473, 0.477, 0.477, 0.472, 0.467, 0.466, 0.466, 0.469, 0.471, 0.473, 0.475};
+  static const double pulseRates[] = {5.130, 5.678, 6.227, 6.776, 7.324, 7.873, 8.421, 8.970, 9.518, 10.067, 10.615, 11.164, 11.712, 12.261, 12.809, 13.358, 13.906, 14.455, 15.003, 15.552, 16.100};
+  static const double mlPerPulse[] = {0.185, 0.230, 0.269, 0.288, 0.298, 0.304, 0.316, 0.341, 0.373, 0.399, 0.419, 0.438, 0.454, 0.468, 0.480, 0.488, 0.493, 0.500, 0.509, 0.520, 0.534};
   static const int pulseTableLength = sizeof(pulseRates) / sizeof(pulseRates[0]);
   static const double interval = (pulseRates[pulseTableLength - 1] - pulseRates[0]) / (pulseTableLength - 1);
 
@@ -81,6 +84,7 @@ ISR(PCINT1_vect)
     return;
   }
   g_lastChangeTime = now;
+  g_halfPulseCount++;
 
   // get the length of the last half-cycle
   double timeSinceLastTick = 1.0 / 1000000.0 * (now - g_lastFlowPulseTime);
@@ -118,7 +122,56 @@ void FlowMeter::initialise()
 
 void FlowMeter::calibrate()
 {
-  Serial.println(F("Calibrating flow meter..."));
+  delay(1);
+  while (Serial.available()) Serial.read();
+  Serial.println(F("Fill reservoir, place a measuring cup under steam wand and crack steam valve open (so flow is fairly constant, not pulsing)."));
+  while(!Serial.available())
+  while(Serial.available()) Serial.read();
+
+  // run the pump at varying power leves for 20s and measure the number of pulses and then ask what volume was pumped
+  double pulseRates[10];
+  double flowRates[10];
+  double power = 0.07508468627929688; // i.e. 0.75 ^ 10
+  for (int i = 0; i < 10; i++)
+  {
+    power /= 0.75;
+
+    uint8_t oldSREG = SREG;
+    cli();
+    unsigned long halfPulseCount = g_halfPulseCount;
+    SREG = oldSREG;
+    uint32_t startTime = millis();
+    MainsSyncManager::setPumpPower(power);
+    while (millis() - startTime < 20000);
+    MainsSyncManager::setPumpPower(0.0);
+
+    Serial.println(F("Measure the volume, replace the cup empty and enter the volume."));
+    while(Serial.available()) Serial.read();
+    while(!Serial.available());
+    double volume = Serial.parseFloat();
+
+    oldSREG = SREG;
+    cli();
+    halfPulseCount = g_halfPulseCount - halfPulseCount;
+    SREG = oldSREG;
+
+    pulseRates[i] = halfPulseCount / 2.0 / 20.0;
+    flowRates[i] = volume / 20.0;
+    Serial.print(pulseRates[i]);
+    Serial.print(", ");
+    Serial.println(flowRates[i]);
+  }
+  Serial.print("pulseRates = (");
+  for (int i = 0; i < 10; i++) { Serial.print(pulseRates[i]); Serial.print(", "); }
+  Serial.println(")");
+  Serial.print("flowRates = (");
+  for (int i = 0; i < 10; i++) { Serial.print(flowRates[i]); Serial.print(", "); }
+  Serial.println(")");
+
+  while(Serial.available()) Serial.read();
+  Serial.println(F("Close the steam valve and send a character to continue."));
+  while(!Serial.available())
+  while(Serial.available()) Serial.read();
 }
 
 double FlowMeter::getFlowRate()
@@ -161,6 +214,15 @@ double FlowMeter::getTotalVolume()
   uint8_t oldSREG = SREG;
   cli();
   double res = g_totalVolume;
+  SREG = oldSREG;
+  return res;
+}
+
+unsigned long FlowMeter::getPulseCount()
+{
+  uint8_t oldSREG = SREG;
+  cli();
+  unsigned long res = g_halfPulseCount / 2;
   SREG = oldSREG;
   return res;
 }

@@ -38,6 +38,9 @@ namespace FlowMeter
 
   // returns the total volume of water measured in ml
   double getTotalVolume();
+
+  // get the tota number of full pulses on the flow meter
+  unsigned long getPulseCount();
 }
 
 #endif
